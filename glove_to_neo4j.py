@@ -12,7 +12,6 @@ with open("small_glove.txt", "r") as glove_file, driver.session() as session:
         embedding = [float(part) for part in parts[1:]]
 
         params.append({"id": id, "embedding": embedding})
-        print(id, embedding)
 
     session.run("""\
     UNWIND {params} AS row
