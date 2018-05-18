@@ -73,9 +73,11 @@ def macro_vertex(macro_vertex_label, round=None):
             session.run("""\
                 MATCH (cluster:Cluster {id: {clusterId}, round: {round} })-[:CONTAINS]->(token)
                 WITH cluster, collect(token) AS tokens
-                UNWIND tokens AS t1 UNWIND tokens AS t2 WITH t1, t2 WHERE t1 <> t2
-                WITH  t1, reduce(acc = 0, t2 in collect(t2) | acc + apoc.algo.euclideanDistance(t1.embedding, t2.embedding)) AS distance
-                WITH t1, distance ORDER BY distance LIMIT 1
+                UNWIND tokens AS t1 UNWIND tokens AS t2 WITH t1, t2, cluster WHERE t1 <> t2
+                WITH t1, cluster, reduce(acc = 0, t2 in collect(t2) | acc + apoc.algo.euclideanDistance(t1.embedding, t2.embedding)) AS distance
+                WITH t1, cluster, distance ORDER BY distance LIMIT 1
+                SET cluster.centre = t1.id
+                WITH t1
                 CALL apoc.create.addLabels(t1, [{newLabel}]) YIELD node
                 RETURN node
                 """, {"clusterId": cluster_id, "round": round, "newLabel": macro_vertex_label})
