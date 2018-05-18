@@ -28,11 +28,7 @@ def nearest_neighbour(label):
 
             t1 = item[0]
             t2 = items[nearest_neighbour_index][0]
-
-            print(t1, t2, distance)
-            params.append({"t1": item[0], "t2": t2, "distance": distance})
-
-        print(params)
+            params.append({"t1": t1, "t2": t2, "distance": distance})
 
         session.run("""\
         UNWIND {params} AS param
@@ -43,15 +39,25 @@ def nearest_neighbour(label):
         """, {"params": params})
 
 
-def union_find(label, cluster_label):
+def union_find(label, cluster_label, round=None):
+    print("Round:", round, "label: ", label, "cluster_label: ", cluster_label)
     with driver.session() as session:
-        result = session.run("""\
-        CALL algo.unionFind.stream({label}, "NEAREST_TO")
-        YIELD nodeId, setId
-        MATCH (token) WHERE id(token) = nodeId
-        MERGE (cluster:`%s` {id: setId })
-        MERGE (cluster)-[:CONTAINS]->(token)
-        """ % cluster_label, {"label": label})
+        if round is not None:
+            result = session.run("""\
+            CALL algo.unionFind.stream("MATCH (n:`%s`) RETURN id(n) AS id", "MATCH (a:`%s`)-[:NEAREST_TO]->(b:`%s`) RETURN id(a) AS source, id(b) AS target", {graph: 'cypher'})
+            YIELD nodeId, setId
+            MATCH (token) WHERE id(token) = nodeId
+            MERGE (cluster:`%s` {id: setId, round: {round} })
+            MERGE (cluster)-[:CONTAINS]->(token)
+            """ % (label, label, label, cluster_label), {"label": label, "round": round})
+        else:
+            result = session.run("""\
+            CALL algo.unionFind.stream("MATCH (n:`%s`) RETURN id(n) AS id", "MATCH (a:`%s`)-[:NEAREST_TO]->(b:`%s`) RETURN id(a) AS source, id(b) AS target", {graph: 'cypher'})
+            YIELD nodeId, setId
+            MATCH (token) WHERE id(token) = nodeId
+            MERGE (cluster:`%s` {id: setId })
+            MERGE (cluster)-[:CONTAINS]->(token)
+            """ % (label, label, label, cluster_label), {"label": label})
         print(result.summary().counters)
 
 
@@ -82,18 +88,18 @@ def macro_vertex(cluster_label, macro_vertex_label):
 
 
 nearest_neighbour("Token")
-union_find("Token", "Cluster")
+union_find("Token", "Cluster", 0)
 number_of_clusters = check_clusters("Cluster")
 
 cluster_label = "Cluster"
 counter = 1
 while True:
+    print("counter: {0}".format(counter))
     macro_vertex_label = "MacroVertex%d" % counter
     macro_vertex(cluster_label, macro_vertex_label)
     nearest_neighbour(macro_vertex_label)
 
     cluster_label = "Cluster-MV%s" % counter
-
     union_find(macro_vertex_label, cluster_label)
     number_of_clusters = check_clusters(cluster_label)
 
