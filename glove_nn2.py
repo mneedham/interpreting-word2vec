@@ -61,9 +61,10 @@ def union_find(label, cluster_label, round=None):
         print(result.summary().counters)
 
 
-def check_clusters(cluster_label):
+def check_clusters(cluster_label, round):
     with driver.session() as session:
-        return session.run("MATCH (n:`%s`) RETURN count(*) AS clusters" % cluster_label).peek()["clusters"]
+        query = "MATCH (n:`%s`) WHERE n.round = {round} RETURN count(*) AS clusters" % cluster_label
+        return session.run(query, {"round": round}).peek()["clusters"]
 
 
 def macro_vertex(cluster_label, macro_vertex_label, round=None):
@@ -107,24 +108,26 @@ def macro_vertex(cluster_label, macro_vertex_label, round=None):
                 RETURN node
                 """ % cluster_label, {"clusterId": cluster_id, "newLabel": macro_vertex_label})
 
+round = 0
+cluster_label = "Cluster"
 
 nearest_neighbour("Token")
-union_find("Token", "Cluster", 0)
-number_of_clusters = check_clusters("Cluster")
+union_find("Token", cluster_label, round)
+number_of_clusters = check_clusters(cluster_label, round)
 
-cluster_label = "Cluster"
 counter = 1
 while True:
     print("counter: {0}".format(counter))
     macro_vertex_label = "MacroVertex%d" % counter
-    macro_vertex(cluster_label, macro_vertex_label)
+    macro_vertex(cluster_label, macro_vertex_label, round)
     nearest_neighbour(macro_vertex_label)
 
-    cluster_label = "Cluster-MV%s" % counter
-    union_find(macro_vertex_label, cluster_label)
-    number_of_clusters = check_clusters(cluster_label)
+    round += 1
+
+    union_find(macro_vertex_label, cluster_label, round)
+    number_of_clusters = check_clusters(cluster_label, round)
 
     if number_of_clusters == 1:
         sys.exit(1)
     else:
-        counter = counter + 1
+        counter += 1
