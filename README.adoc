@@ -3,10 +3,28 @@
 In this repository I attempt to reproduce the findings of a paper written by Thomas A. Trost and Dietrich Klakow titled http://aclweb.org/anthology/W/W17/W17-2404.pdf[Parameter Free Hierarchical Graph-Based Clustering for Analyzing
 Continuous Word Embeddings^].
 
+I use scikit-learn, Neo4j, and the Neo4j graph algorithms and APOC libraries.
+
+== Installation
+
+* Download the Neo4j Desktop from https://neo4j.com/download[neo4j.com/download^]
+* Install the APOC and Graph Algorithms libraries
+
+image::installation.png[]
+
+* Install Python required libraries
 
 [source, bash]
 ----
 pip install -r requirements.txt
+----
+
+== Running the algorithm
+
+
+[source, bash]
+----
+
 python glove_to_neo4j.py
 python glove_nn.py
 ----

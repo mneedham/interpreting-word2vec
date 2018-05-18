@@ -19,7 +19,13 @@ with open("data/medium_glove.txt", "r") as glove_file, driver.session() as sessi
     ON CREATE SET t.embedding = row.embedding
     """, {"params": params})
 
-    session.run("""'
+    session.run("""\
     CREATE CONSTRAINT ON (c:Cluster)
     ASSERT (c.id, c.round) IS NODE KEY""")
 
+    session.run("""\
+    CREATE CONSTRAINT ON (t:Token)
+    ASSERT t.id IS UNIQUE""")
+
+    session.run("""\
+    CREATE INDEX ON :Cluster(round)""")
