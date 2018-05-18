@@ -18,3 +18,8 @@ with open("data/medium_glove.txt", "r") as glove_file, driver.session() as sessi
     MERGE (t:Token {id: row.id})
     ON CREATE SET t.embedding = row.embedding
     """, {"params": params})
+
+    session.run("""'
+    CREATE CONSTRAINT ON (c:Cluster)
+    ASSERT (c.id, c.round) IS NODE KEY""")
+
