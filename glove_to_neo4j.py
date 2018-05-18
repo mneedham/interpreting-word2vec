@@ -2,7 +2,7 @@ from neo4j.v1 import GraphDatabase, basic_auth
 
 driver = GraphDatabase.driver("bolt://localhost", auth=basic_auth("neo4j", "neo"))
 
-with open("medium_glove.txt", "r") as glove_file, driver.session() as session:
+with open("data/medium_glove.txt", "r") as glove_file, driver.session() as session:
     rows = glove_file.readlines()
 
     params = []
