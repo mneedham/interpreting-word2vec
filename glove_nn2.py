@@ -66,25 +66,46 @@ def check_clusters(cluster_label):
         return session.run("MATCH (n:`%s`) RETURN count(*) AS clusters" % cluster_label).peek()["clusters"]
 
 
-def macro_vertex(cluster_label, macro_vertex_label):
-    with driver.session() as session:
-        result = session.run("""\
-        MATCH (cluster:`%s`)
-        RETURN cluster
-        """ % cluster_label)
+def macro_vertex(cluster_label, macro_vertex_label, round=None):
+    if round is not None:
+        with driver.session() as session:
+            result = session.run("""\
+            MATCH (cluster:`%s`)
+            WHERE cluster.round = {round}
+            RETURN cluster
+            """ % cluster_label, {"round": round})
 
-        for row in result:
-            cluster_id = row["cluster"]["id"]
+            for row in result:
+                cluster_id = row["cluster"]["id"]
 
-            session.run("""\
-            MATCH (cluster:`%s` {id: {clusterId} })-[:CONTAINS]->(token)
-            WITH cluster, collect(token) AS tokens
-            UNWIND tokens AS t1 UNWIND tokens AS t2 WITH t1, t2 WHERE t1 <> t2
-            WITH  t1, reduce(acc = 0, t2 in collect(t2) | acc + apoc.algo.euclideanDistance(t1.embedding, t2.embedding)) AS distance
-            WITH t1, distance ORDER BY distance LIMIT 1
-            CALL apoc.create.addLabels(t1, [{newLabel}]) YIELD node
-            RETURN node
-            """ % cluster_label, {"clusterId": cluster_id, "newLabel": macro_vertex_label})
+                session.run("""\
+                MATCH (cluster:`%s` {id: {clusterId}, round: {round} })-[:CONTAINS]->(token)
+                WITH cluster, collect(token) AS tokens
+                UNWIND tokens AS t1 UNWIND tokens AS t2 WITH t1, t2 WHERE t1 <> t2
+                WITH  t1, reduce(acc = 0, t2 in collect(t2) | acc + apoc.algo.euclideanDistance(t1.embedding, t2.embedding)) AS distance
+                WITH t1, distance ORDER BY distance LIMIT 1
+                CALL apoc.create.addLabels(t1, [{newLabel}]) YIELD node
+                RETURN node
+                """ % cluster_label, {"clusterId": cluster_id, "round": round, "newLabel": macro_vertex_label})
+    else:
+        with driver.session() as session:
+            result = session.run("""\
+            MATCH (cluster:`%s`)
+            RETURN cluster
+            """ % cluster_label)
+
+            for row in result:
+                cluster_id = row["cluster"]["id"]
+
+                session.run("""\
+                MATCH (cluster:`%s` {id: {clusterId} })-[:CONTAINS]->(token)
+                WITH cluster, collect(token) AS tokens
+                UNWIND tokens AS t1 UNWIND tokens AS t2 WITH t1, t2 WHERE t1 <> t2
+                WITH  t1, reduce(acc = 0, t2 in collect(t2) | acc + apoc.algo.euclideanDistance(t1.embedding, t2.embedding)) AS distance
+                WITH t1, distance ORDER BY distance LIMIT 1
+                CALL apoc.create.addLabels(t1, [{newLabel}]) YIELD node
+                RETURN node
+                """ % cluster_label, {"clusterId": cluster_id, "newLabel": macro_vertex_label})
 
 
 nearest_neighbour("Token")
