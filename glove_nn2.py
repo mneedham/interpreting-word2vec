@@ -14,13 +14,15 @@ def nearest_neighbour(label):
         """ % label)
 
         points = {row["token"]: row["embedding"] for row in result}
-
         items = list(points.items())
 
         X = [item[1] for item in items]
+        print("[NN] building KDTree")
         kdt = KDTree(X, leaf_size=10000, metric='euclidean')
+        print("[NN] finding nearest neighbours")
         distances, indices = kdt.query(X, k=2, return_distance=True)
 
+        print("[NN] building params")
         params = []
         for index, item in enumerate(items):
             nearest_neighbour_index = indices[index][1]
@@ -30,6 +32,7 @@ def nearest_neighbour(label):
             t2 = items[nearest_neighbour_index][0]
             params.append({"t1": t1, "t2": t2, "distance": distance})
 
+        print("[NN] executing Cypher")
         session.run("""\
         UNWIND {params} AS param
         MATCH (token) WHERE id(token) = param.t1
@@ -43,7 +46,11 @@ def union_find(label, round=None):
     print("Round:", round, "label: ", label)
     with driver.session() as session:
         result = session.run("""\
-            CALL algo.unionFind.stream("MATCH (n:`%s`) RETURN id(n) AS id", "MATCH (a:`%s`)-[:NEAREST_TO]->(b:`%s`) RETURN id(a) AS source, id(b) AS target", {graph: 'cypher'})
+            CALL algo.unionFind.stream(
+              "MATCH (n:`%s`) RETURN id(n) AS id", 
+              "MATCH (a:`%s`)-[:NEAREST_TO]->(b:`%s`) RETURN id(a) AS source, id(b) AS target", 
+              {graph: 'cypher'}
+            )
             YIELD nodeId, setId
             MATCH (token) WHERE id(token) = nodeId
             MERGE (cluster:Cluster {id: setId, round: {round} })
