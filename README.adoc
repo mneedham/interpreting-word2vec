@@ -1,0 +1,13 @@
+= Interpreting Word2vec/GloVe word embeddings
+
+In this repository I attempt to reproduce the findings of a paper written by Thomas A. Trost and Dietrich Klakow titled http://aclweb.org/anthology/W/W17/W17-2404.pdf[Parameter Free Hierarchical Graph-Based Clustering for Analyzing
+Continuous Word Embeddings^].
+
+
+[source, bash]
+----
+pip install -r requirements.txt
+python glove_to_neo4j.py
+python glove_nn.py
+----
+
