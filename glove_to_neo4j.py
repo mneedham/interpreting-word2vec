@@ -1,8 +1,8 @@
-from neo4j.v1 import GraphDatabase, basic_auth
+from neo4j import GraphDatabase, basic_auth
 
-driver = GraphDatabase.driver("bolt://localhost", auth=basic_auth("neo4j", "neo"))
+driver = GraphDatabase.driver("bolt://localhost", auth=basic_auth("neo4j", "neo"), encrypted=False)
 
-with open("data/medium_glove.txt", "r") as glove_file, driver.session() as session:
+with open("/data/medium_glove.txt", "r", encoding='utf-8') as glove_file, driver.session() as session:
     rows = glove_file.readlines()
 
     params = []
@@ -14,7 +14,7 @@ with open("data/medium_glove.txt", "r") as glove_file, driver.session() as sessi
         params.append({"id": id, "embedding": embedding})
 
     session.run("""\
-    UNWIND {params} AS row
+    UNWIND $params AS row
     MERGE (t:Token {id: row.id})
     ON CREATE SET t.embedding = row.embedding
     """, {"params": params})

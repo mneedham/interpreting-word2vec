@@ -1,9 +1,9 @@
 import sys
 
-from neo4j.v1 import GraphDatabase, basic_auth
+from neo4j import GraphDatabase, basic_auth
 from sklearn.neighbors import KDTree
 
-driver = GraphDatabase.driver("bolt://localhost", auth=basic_auth("neo4j", "neo"))
+driver = GraphDatabase.driver("bolt://localhost", auth=basic_auth("neo4j", "neo"), encrypted=False)
 
 
 def nearest_neighbour(label):
@@ -34,7 +34,7 @@ def nearest_neighbour(label):
 
         print("[NN] executing Cypher")
         session.run("""\
-        UNWIND {params} AS param
+        UNWIND $params AS param
         MATCH (token) WHERE id(token) = param.t1
         MATCH (closest) WHERE id(closest) = param.t2
         MERGE (token)-[nearest:NEAREST_TO]->(closest)
@@ -53,7 +53,7 @@ def union_find(label, round=None):
             )
             YIELD nodeId, setId
             MATCH (token) WHERE id(token) = nodeId
-            MERGE (cluster:Cluster {id: setId, round: {round} })
+            MERGE (cluster:Cluster {id: setId, round: $round })
             MERGE (cluster)-[:CONTAINS]->(token)
             """ % (label, label, label), {"label": label, "round": round})
 
@@ -62,7 +62,7 @@ def union_find(label, round=None):
 
 def check_clusters(round):
     with driver.session() as session:
-        query = "MATCH (n:Cluster) WHERE n.round = {round} RETURN count(*) AS clusters"
+        query = "MATCH (n:Cluster) WHERE n.round = $round RETURN count(*) AS clusters"
         return session.run(query, {"round": round}).peek()["clusters"]
 
 
@@ -70,25 +70,26 @@ def macro_vertex(macro_vertex_label, round=None):
     with driver.session() as session:
         result = session.run("""\
             MATCH (cluster:Cluster)
-            WHERE cluster.round = {round}
+            WHERE cluster.round = $round
             RETURN cluster
             """, {"round": round})
 
         for row in result:
             cluster_id = row["cluster"]["id"]
-
-            session.run("""\
-                MATCH (cluster:Cluster {id: {clusterId}, round: {round} })-[:CONTAINS]->(token)
+            tx = session.begin_transaction()
+            tx.run("""\
+                MATCH (cluster:Cluster {id: $clusterId, round: $round })-[:CONTAINS]->(token)
                 WITH cluster, collect(token) AS tokens
                 UNWIND tokens AS t1 UNWIND tokens AS t2 WITH t1, t2, cluster WHERE t1 <> t2
-                WITH t1, cluster, reduce(acc = 0, t2 in collect(t2) | acc + apoc.algo.euclideanDistance(t1.embedding, t2.embedding)) AS distance
+                WITH t1, cluster, reduce(acc = 0.0, t2 in collect(t2) | acc + apoc.algo.euclideanDistance(t1.embedding, t2.embedding)) AS distance
                 WITH t1, cluster, distance ORDER BY distance LIMIT 1
                 SET cluster.centre = t1.id
                 WITH t1
-                CALL apoc.create.addLabels(t1, [{newLabel}]) YIELD node
+                CALL apoc.create.addLabels(t1, [$newLabel]) YIELD node
                 RETURN node
                 """, {"clusterId": cluster_id, "round": round, "newLabel": macro_vertex_label})
-
+            tx.success = True
+            tx.close()
 
 round = 0
 cluster_label = "Cluster"

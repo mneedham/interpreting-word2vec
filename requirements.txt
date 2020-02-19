@@ -1,4 +1,5 @@
+neo4j==1.7.1
 neo4j-driver==1.5.3
 numpy==1.14.3
-scikit-learn==0.19.1
+scikit-learn==0.20.1
 scipy==1.1.0
